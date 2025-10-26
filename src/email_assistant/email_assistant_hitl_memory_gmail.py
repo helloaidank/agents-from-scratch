@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 load_dotenv(".env")
 
 # Get tools with Gmail tools
-tools = get_tools(["send_email_tool", "schedule_meeting_tool", "check_calendar_tool", "Question", "Done"], include_gmail=True)
+tools = get_tools(["send_email_tool", "schedule_meeting_tool", "check_calendar_tool", "Question", "search_dno_guidance_tool", "Done"], include_gmail=True, include_rag=True)
 tools_by_name = get_tools_by_name(tools)
 
 # Initialise the LLM for use with router / structured output

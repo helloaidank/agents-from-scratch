@@ -1,60 +1,33 @@
-from langchain_core.tools import tool
-from langchain_community.document_loaders import PDFPlumberLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
-from qdrant_client.models import Distance, VectorParams
-from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
+from langchain_qdrant import QdrantVectorStore
+from langchain_openai import OpenAIEmbeddings
+from langchain.tools import tool
+from pydantic import BaseModel, Field
+import os
 
-file_path = "/Users/aidan.kelly/nesta/discovery/agentic_prototype/agents-from-scratch/src/email_assistant/data/ena_connect_direct_guidance.pdf"
-loader = PDFPlumberLoader(file_path)
-
-docs = loader.load()
-
-
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000, chunk_overlap=200, add_start_index=True
+# Use absolute path to vector store
+_vector_db_path = os.path.join(os.path.dirname(__file__), "dno_guidance_db")
+_qdrant_client = QdrantClient(path=_vector_db_path)
+_embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+_vector_store = QdrantVectorStore(
+    client=_qdrant_client,
+    collection_name="dno_guidance",
+    embedding=_embeddings,
 )
-all_splits = text_splitter.split_documents(docs)
+
+class SearchDNOGuidanceInput(BaseModel):
+    query: str = Field(description="Query string to search DNO guidance")
+    max_results: int = Field(default=2, description="Maximum number of results to return")
 
 
-
-embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
-
-
-client = QdrantClient(":memory:")
-
-vector_size = len(embeddings.embed_query("sample text"))
-
-if not client.collection_exists("test"):
-    client.create_collection(
-        collection_name="test",
-        vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
+@tool(args_schema=SearchDNOGuidanceInput)
+def search_dno_guidance_tool(query: str, max_results: int = 2) -> str:
+    """Search DNO operational knowledge base and return concatenated sources and content."""
+    results = _vector_store.similarity_search(query, k=max_results)
+    print(results[0])
+    return "\n\n".join(
+        [
+            f"**{doc.metadata.get('source', 'Unknown')}**\n{doc.page_content}"
+            for doc in results
+        ]
     )
-vector_store = QdrantVectorStore(
-    client=client,
-    collection_name="test",
-    embedding=embeddings,
-)
-
-ids = vector_store.add_documents(documents=all_splits)
-
-results = vector_store.similarity_search(
-    "What is Connect Direct?"
-)
-
-
-
-retriever = vector_store.as_retriever(
-    search_type="similarity",
-    search_kwargs={"k": 1},
-)
-
-
-
-print(retriever.batch(
-    [
-        "What is Connect Direct?",
-        "Which DNOs have access to Connect Direct?",
-    ],
-))
