@@ -1,13 +1,14 @@
 from typing import Dict, List, Callable, Any, Optional
 from langchain_core.tools import BaseTool
 
-def get_tools(tool_names: Optional[List[str]] = None, include_gmail: bool = False) -> List[BaseTool]:
+def get_tools(tool_names: Optional[List[str]] = None, include_gmail: bool = False, include_rag: bool = False) -> List[BaseTool]:
     """Get specified tools or all tools if tool_names is None.
     
     Args:
         tool_names: Optional list of tool names to include. If None, returns all tools.
         include_gmail: Whether to include Gmail tools. Defaults to False.
-        
+        include_rag: Whether to include RAG tools. Defaults to False.
+
     Returns:
         List of tool objects
     """
@@ -43,7 +44,17 @@ def get_tools(tool_names: Optional[List[str]] = None, include_gmail: bool = Fals
         except ImportError:
             # If Gmail tools aren't available, continue without them
             pass
-    
+    # Add RAG tools if requested
+    if include_rag:
+        try:
+            from email_assistant.tools.rag.rag_tools import search_dno_guidance_tool
+            all_tools.update({
+                "search_dno_guidance_tool": search_dno_guidance_tool,
+            })
+        except ImportError:
+            # If RAG tools aren't available, continue without them
+            pass
+
     if tool_names is None:
         return list(all_tools.values())
     
